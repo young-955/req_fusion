@@ -7,10 +7,10 @@ qwen_url = "http://127.0.0.1:3000/batch"
 url = qwen_url  # 替换为实际的接口地址
 content = '你好'
 # 请求的参数
-payload = [{
-    "model": "qwen1p5_72b",
+payload = {
+    "model": "qwen1p5_72a",
     "max_tokens": 2046
-}]
+}
 # 设置请求头
 headers = {
     "Content-Type": "application/json",
