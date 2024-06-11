@@ -5,3 +5,5 @@ class connectType(Enum):
     http = 0
     # websocket
     ws = 1
+    # redis，专为大模型流式设计
+    redis = 2

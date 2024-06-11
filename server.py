@@ -30,6 +30,22 @@ elif connectType[connType] == connectType.ws:
                     await websocket.send_json(response)
         except WebSocketDisconnect:
             print("Client disconnected")
+elif connectType[connType] == connectType.redis:
+    # 大模型流式
+    @app.websocket("/batch")
+    async def websocket_endpoint(websocket: WebSocket):
+        await websocket.accept()
+        try:
+            while True:
+                request_data = await websocket.receive_json()
+                async for response in  batch_server.ws_infer(request_data, websocket):
+                    if response.get('res', '') == 'end':
+                        raise WebSocketDisconnect
+                    else:
+                        print(f'now response: {response}')
+                    await websocket.send_json(response)
+        except WebSocketDisconnect:
+            print("Client disconnected")
 
 if __name__ == '__main__':
     threading.Thread(target=batch_server.process_batch_requests, daemon=True).start()
