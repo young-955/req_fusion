@@ -44,7 +44,7 @@ class batch_fuse_server():
 
                 # 模拟处理批处理请求
                 batch_input = [req['body'] for req in batch_requests]
-                batch_response_bodies = batch_inference(batch_input)
+                # batch_response_bodies = batch_inference(batch_input)
 
                 if connectType[connType] == connectType.ws:
                     # 流式返回
@@ -71,6 +71,7 @@ class batch_fuse_server():
                             response_queue.put(response_body)
             
         self.batch_process_flag = False
+        print('once process finished')
 
     def infer(self, request_data):
         request_id = str(uuid.uuid4())
@@ -119,6 +120,8 @@ class batch_fuse_server():
                 return
 
 def batch_inference(batch_input):
+    import time
+    time.sleep(10)
     if inferNeedConn:
         # 推理服务与本服务需要通过请求连接
         if connectType[connType] == connectType.http:
@@ -137,12 +140,15 @@ def batch_inference(batch_input):
                 ws.close()
                 raise Exception
     else:
-        # 推理服务在本服务中实现
-        batch_res = batch_input
-        yield batch_res
-        yield [{'res': 'add1'}] * len(batch_res)
-        yield [{'res': 'add2'}] * len(batch_res)
-        yield [{'res': 'end'}] * len(batch_res)
-        return
+        if connectType[connType] == connectType.http:
+            return batch_input
+        elif connectType[connType] == connectType.ws:
+            # 推理服务在本服务中实现
+            batch_res = batch_input
+            yield batch_res
+            yield [{'res': 'add1'}] * len(batch_res)
+            yield [{'res': 'add2'}] * len(batch_res)
+            yield [{'res': 'end'}] * len(batch_res)
+            return
 
     return batch_res

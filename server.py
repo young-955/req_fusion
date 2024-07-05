@@ -10,9 +10,9 @@ batch_server = batch_fuse_server()
 
 # 根据配置选择连接类型
 if connectType[connType] == connectType.http:
-    @app.post('/batch', methods=['POST'])
+    @app.post('/batch')
     def batch(request: Request):
-        request_data = request.get_json()
+        request_data = request.json()
         res = batch_server.infer(request_data)
         return JSONResponse(res)
 elif connectType[connType] == connectType.ws:

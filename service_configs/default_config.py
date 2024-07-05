@@ -14,7 +14,7 @@ inferNeedConn = False
 # 1: http
 # 2: ws
 # 3: redis
-connType = 'ws'
+connType = 'http'
 # 请求地址
 infer_url = 'http://0.0.0.0:8080/api/v1/predict'
 # 请求header
