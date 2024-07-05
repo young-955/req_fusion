@@ -13,6 +13,7 @@ class batch_fuse_server():
         self.request_queue = []
         self.response_queues = {}
         self.lock = threading.Lock()
+        self.batch_process_flag = False
 
     # 批量请求处理，受延迟容忍时间控制
     def process_batch_requests(self):
@@ -22,45 +23,54 @@ class batch_fuse_server():
             print(f'time process')
             self.process_batch_requests_once()
 
-    # 处理一次批量请求
+    # 处理一次批量请求，直到队列中请求全部处理完再结束
     def process_batch_requests_once(self):
-        batch_requests = None
-        with self.lock:
-            if self.request_queue:
-                # 取前n个
-                batch_requests = self.request_queue[:batch_num]
-                self.request_queue = self.request_queue[batch_num:]
+        # 如果已经在处理，则等待上一batch处理完再执行
+        if self.batch_process_flag:
+            return
+        else:
+            self.batch_process_flag = True
         
-        if batch_requests:
-            print(f'once process: {batch_requests}')
+        while len(self.request_queue) > 0:
+            batch_requests = None
+            with self.lock:
+                if self.request_queue:
+                    # 取前n个
+                    batch_requests = self.request_queue[:batch_num]
+                    self.request_queue = self.request_queue[batch_num:]
+            
+            if batch_requests:
+                print(f'once process: {batch_requests}')
 
-            # 模拟处理批处理请求
-            batch_input = [req['body'] for req in batch_requests]
-            batch_response_bodies = batch_inference(batch_input)
+                # 模拟处理批处理请求
+                batch_input = [req['body'] for req in batch_requests]
+                batch_response_bodies = batch_inference(batch_input)
 
-            if connectType[connType] == connectType.ws:
-                # 流式返回
-                # TODO 增加batch中多个请求结束不一致的处理
-                for batch_response_bodies in batch_inference(batch_input):
-                    batch_id = [req['id'] for req in batch_requests]
+                if connectType[connType] == connectType.ws:
+                    # 流式返回
+                    # TODO 增加batch中多个请求结束不一致的处理
+                    for batch_response_bodies in batch_inference(batch_input):
+                        batch_id = [req['id'] for req in batch_requests]
+                        # 拆分结果并返回
+                        for request, response_body in zip(batch_requests, batch_response_bodies):
+                            request_id = request['id']
+                            # 流式已完成推理的id不进行处理
+                            if request_id in batch_id:
+                                response_queue = self.response_queues.get(request_id)
+                                if response_queue:
+                                    if response_body.get('res', '') == 'end':
+                                        batch_id.remove(request_id)
+                                    response_queue.put(response_body)
+                else:
+                    batch_response_bodies = list(batch_inference(batch_input))
                     # 拆分结果并返回
                     for request, response_body in zip(batch_requests, batch_response_bodies):
                         request_id = request['id']
-                        # 流式已完成推理的id不进行处理
-                        if request_id in batch_id:
-                            response_queue = self.response_queues.get(request_id)
-                            if response_queue:
-                                if response_body.get('res', '') == 'end':
-                                    batch_id.remove(request_id)
-                                response_queue.put(response_body)
-            else:
-                batch_response_bodies = list(batch_inference(batch_input))
-                # 拆分结果并返回
-                for request, response_body in zip(batch_requests, batch_response_bodies):
-                    request_id = request['id']
-                    response_queue = self.response_queues.pop(request_id, None)
-                    if response_queue:
-                        response_queue.put(response_body)
+                        response_queue = self.response_queues.pop(request_id, None)
+                        if response_queue:
+                            response_queue.put(response_body)
+            
+        self.batch_process_flag = False
 
     def infer(self, request_data):
         request_id = str(uuid.uuid4())
