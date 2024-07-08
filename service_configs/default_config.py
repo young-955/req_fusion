@@ -7,7 +7,7 @@ batch_num = 2
 # 批量请求合并延迟容忍时间/s
 batch_merge_timeout = 5
 # 等待批处理完成时间
-batch_process_timeout = 60
+batch_process_timeout = 10
 # 推理是否需要通过请求完成
 inferNeedConn = False
 # 请求连接类型

@@ -27,11 +27,13 @@ class batch_fuse_server():
     def process_batch_requests_once(self):
         # 如果已经在处理，则等待上一batch处理完再执行
         if self.batch_process_flag:
+            print('func is running, return')
             return
         else:
             self.batch_process_flag = True
         
         while len(self.request_queue) > 0:
+            print(f'request_queue: {len(self.request_queue)}')
             batch_requests = None
             with self.lock:
                 if self.request_queue:
@@ -62,7 +64,9 @@ class batch_fuse_server():
                                         batch_id.remove(request_id)
                                     response_queue.put(response_body)
                 else:
+                    print(f'http infering, input: {batch_input}')
                     batch_response_bodies = list(batch_inference(batch_input))
+                    print(f'http infer finish, res: {batch_response_bodies}')
                     # 拆分结果并返回
                     for request, response_body in zip(batch_requests, batch_response_bodies):
                         request_id = request['id']
@@ -82,7 +86,7 @@ class batch_fuse_server():
             self.response_queues[request_id] = response_queue
 
         # 如果达到需要批处理的数量，立即执行一次批处理
-        print(f'len: {len(self.request_queue)}')
+        print(f'request_queue len: {len(self.request_queue)}, {self.request_queue}')
         if len(self.request_queue) >= batch_num:
             print(self.request_queue)
             self.process_batch_requests_once()
@@ -121,27 +125,31 @@ class batch_fuse_server():
 
 def batch_inference(batch_input):
     import time
-    time.sleep(10)
+    time.sleep(3)
     if inferNeedConn:
         # 推理服务与本服务需要通过请求连接
         if connectType[connType] == connectType.http:
             batch_res = requests.post(infer_url, headers=infer_header, json=batch_input)
+            print(f'Returned http res: {batch_res.json()}')
+            return batch_res.json()
         elif connectType[connType] == connectType.ws:
             ws = create_connection(infer_url)
             try:
                 qs = json.dumps(batch_input, ensure_ascii=False)
-
                 ws.send(qs)
                 while True:
                     data = json.loads(ws.recv())
+                    print(f'Received ws data: {data}')
                     yield data
             # 异常前先把连接关了
             except Exception as e:
                 ws.close()
-                raise Exception
+                raise e
     else:
         if connectType[connType] == connectType.http:
-            return batch_input
+            print(f'Returning mock http res: {batch_input}')
+            yield batch_input
+            return
         elif connectType[connType] == connectType.ws:
             # 推理服务在本服务中实现
             batch_res = batch_input
@@ -152,3 +160,4 @@ def batch_inference(batch_input):
             return
 
     return batch_res
+
