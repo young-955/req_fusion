@@ -1,2 +1,2 @@
-from service_configs.default_config import *
-from service_configs.util import connectType
+from service_config.config import *
+from service_config.utils import connectType
